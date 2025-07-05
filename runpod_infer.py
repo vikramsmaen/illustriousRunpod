@@ -76,6 +76,10 @@ def handler(job):
     job_input = job['input']
     job_output = []
 
+    # Health check endpoint
+    if job_input.get('health_check'):
+        return {"status": "healthy", "model_loaded": hasattr(model_runner, 'pipe')}
+
     # -------------------------------- Validation -------------------------------- #
     validated_input = validate(job_input, INPUT_SCHEMA)
     if 'errors' in validated_input:
@@ -83,37 +87,42 @@ def handler(job):
 
     valid_input = validated_input['validated_input']
 
-    image_paths = model_runner.predict(
-        prompt=valid_input['prompt'],
-        negative_prompt=valid_input['negative_prompt'],
-        width=valid_input['width'],
-        height=valid_input['height'],
-        num_outputs=valid_input['num_outputs'],
-        num_inference_steps=valid_input['num_inference_steps'],
-        guidance_scale=valid_input['guidance_scale'],
-        scheduler=valid_input['scheduler'],
-        seed=valid_input['seed']
-    )
+    try:
+        image_paths = model_runner.predict(
+            prompt=valid_input['prompt'],
+            negative_prompt=valid_input['negative_prompt'],
+            width=valid_input['width'],
+            height=valid_input['height'],
+            num_outputs=valid_input['num_outputs'],
+            num_inference_steps=valid_input['num_inference_steps'],
+            guidance_scale=valid_input['guidance_scale'],
+            scheduler=valid_input['scheduler'],
+            seed=valid_input['seed']
+        )
 
-    for index, img_path in enumerate(image_paths):
-        image_url = rp_upload.upload_image(job['id'], img_path)
+        for index, img_path in enumerate(image_paths):
+            image_url = rp_upload.upload_image(job['id'], img_path)
 
-        job_output.append({
-            "image": image_url,
-            "prompt": job_input["prompt"],
-            "negative_prompt": job_input["negative_prompt"],
-            "width": job_input['width'],
-            "height": job_input['height'],
-            "num_inference_steps": job_input['num_inference_steps'],
-            "guidance_scale": job_input['guidance_scale'],
-            "scheduler": job_input['scheduler'],
-            "seed": job_input['seed'] + index
-        })
+            job_output.append({
+                "image": image_url,
+                "prompt": job_input["prompt"],
+                "negative_prompt": job_input["negative_prompt"],
+                "width": job_input['width'],
+                "height": job_input['height'],
+                "num_inference_steps": job_input['num_inference_steps'],
+                "guidance_scale": job_input['guidance_scale'],
+                "scheduler": job_input['scheduler'],
+                "seed": job_input['seed'] + index
+            })
 
-    # Remove downloaded input objects
-    # rp_cleanup.clean(['input_objects'])
+        # Remove downloaded input objects
+        # rp_cleanup.clean(['input_objects'])
 
-    return job_output
+        return job_output
+        
+    except Exception as e:
+        print(f"❌ Error during inference: {e}")
+        return {"error": str(e)}
 
 
 # ---------------------------------------------------------------------------- #
@@ -129,9 +138,26 @@ parser.add_argument("--base_model", type=str,
 
 if __name__ == "__main__":
     args = parser.parse_args()
+    
+    print("🔧 Initializing RunPod handler...")
+    print(f"📦 Model URL: {args.model_url}")
+    print(f"🎯 Base Model: {args.base_model}")
 
-    # Initialize the predictor with the specified base model
-    model_runner = sd_runner.Predictor(base_model=args.base_model)
-    model_runner.setup()
-
-    runpod.serverless.start({"handler": handler})
+    try:
+        # Initialize the predictor with the specified base model
+        print("🤖 Creating model predictor...")
+        model_runner = sd_runner.Predictor(base_model=args.base_model)
+        
+        print("⚙️ Setting up model (this may take several minutes)...")
+        model_runner.setup()
+        
+        print("✅ Model setup completed successfully!")
+        print("🚀 Starting RunPod serverless handler...")
+        
+        runpod.serverless.start({"handler": handler})
+        
+    except Exception as e:
+        print(f"❌ Fatal error during initialization: {e}")
+        import traceback
+        traceback.print_exc()
+        exit(1)
