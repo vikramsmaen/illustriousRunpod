@@ -14,13 +14,24 @@ RUN pip install -r requirements.txt
 # Copy all project files
 COPY . .
 
-# Download the safetensors model if URL provided
-RUN if [ ! -z "$MODEL_URL" ]; then \
-        echo "Downloading model from: $MODEL_URL"; \
-        python model_fetcher.py --model_url="$MODEL_URL"; \
-    else \
-        echo "No MODEL_URL provided, skipping model download"; \
-    fi
+# Create a startup script that will download model at runtime
+RUN echo '#!/bin/bash\n\
+echo "🚀 Starting Illustrious Realism deployment..."\n\
+echo "📦 Model URL: $MODEL_URL"\n\
+echo "🎯 Base Model: $BASE_MODEL"\n\
+\n\
+# Download model if URL provided\n\
+if [ ! -z "$MODEL_URL" ]; then\n\
+    echo "⬇️ Downloading model..."\n\
+    python model_fetcher.py --model_url="$MODEL_URL"\n\
+else\n\
+    echo "⚠️ No MODEL_URL provided, skipping model download"\n\
+fi\n\
+\n\
+# Start the inference server\n\
+echo "🔥 Starting inference server..."\n\
+python -u runpod_infer.py --model_url="$MODEL_URL" --base_model="$BASE_MODEL"\n\
+' > /start.sh && chmod +x /start.sh
 
 # RunPod serverless handler
-CMD python -u runpod_infer.py --model_url="$MODEL_URL" --base_model="$BASE_MODEL"
+CMD ["/start.sh"]
