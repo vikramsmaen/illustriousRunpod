@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Model files and caches
+models/*.safetensors
+models/*.ckpt
+safetensors-cache/
+diffusers-cache/

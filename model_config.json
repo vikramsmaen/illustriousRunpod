@@ -1,0 +1,30 @@
+{
+  "model_info": {
+    "name": "Illustrious Realism v1.0",
+    "description": "CivitAI model deployed via Hugging Face",
+    "type": "safetensors",
+    "base_model": "runwayml/stable-diffusion-v1-5",
+    "huggingface_url": "https://huggingface.co/datasets/kukad/models/resolve/main/illustriousRealismBy_v10VAE.safetensors",
+    "recommended_settings": {
+      "width": 512,
+      "height": 512,
+      "num_inference_steps": 30,
+      "guidance_scale": 7.5,
+      "scheduler": "DPMSolverMultistep"
+    }
+  },
+  "supported_base_models": [
+    "runwayml/stable-diffusion-v1-5",
+    "stabilityai/stable-diffusion-2-1",
+    "stabilityai/stable-diffusion-xl-base-1.0"
+  ],
+  "cloud_storage": {
+    "instructions": "Upload your safetensors file to one of these services and get a direct download URL",
+    "options": [
+      "Google Drive (make shareable and get direct link)",
+      "Dropbox (get direct download link)",
+      "AWS S3 (public bucket with direct URL)",
+      "Hugging Face Hub (as a file in a model repo)"
+    ]
+  }
+}

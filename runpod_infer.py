@@ -121,17 +121,17 @@ def handler(job):
 # ---------------------------------------------------------------------------- #
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--model_url", type=str,
-                    default=None, help="Model URL")
+                    default=None, help="Direct URL to safetensors model")
+parser.add_argument("--base_model", type=str,
+                    default="runwayml/stable-diffusion-v1-5", 
+                    help="Base model to use (SD 1.5, SD 2.1, or SDXL)")
 
 
 if __name__ == "__main__":
     args = parser.parse_args()
 
-    if "huggingface.co" in args.model_url:
-        url_parts = args.model_url.split("/")
-        model_id = f"{url_parts[-2]}/{url_parts[-1]}"
-
-    model_runner = sd_runner.Predictor(model_id)
+    # Initialize the predictor with the specified base model
+    model_runner = sd_runner.Predictor(base_model=args.base_model)
     model_runner.setup()
 
     runpod.serverless.start({"handler": handler})

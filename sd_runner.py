@@ -3,6 +3,7 @@ import time
 from typing import List
 
 import torch
+from safetensors.torch import load_file
 
 from diffusers import (
     StableDiffusionPipeline,
@@ -13,45 +14,73 @@ from diffusers import (
     EulerAncestralDiscreteScheduler,
     DPMSolverMultistepScheduler,
 )
-from diffusers.pipelines.stable_diffusion.safety_checker import (
-    StableDiffusionSafetyChecker,
-)
 
 from xformers.ops import MemoryEfficientAttentionFlashAttentionOp
 
-MODEL_ID = "stabilityai/stable-diffusion-2-1"
-MODEL_CACHE = "diffusers-cache"
-SAFETY_MODEL_ID = "CompVis/stable-diffusion-safety-checker"
+# Configuration for safetensors models
+SAFETENSORS_CACHE_DIR = "safetensors-cache"
+MODEL_FILE = "model.safetensors"
 
 
 class Predictor:
-    ''' A predictor class that loads the model into memory and runs predictions '''
+    ''' A predictor class that loads the safetensors model into memory and runs predictions '''
 
-    def __init__(self, model_id):
-        self.model_id = model_id
+    def __init__(self, base_model="runwayml/stable-diffusion-v1-5"):
+        self.base_model = base_model  # Base model to use (SD 1.5, SD 2.1, or SDXL)
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.safetensors_path = os.path.join(SAFETENSORS_CACHE_DIR, MODEL_FILE)
 
     def setup(self):
         start_time = time.time()
-        """Load the model into memory to make running multiple predictions efficient"""
-        print("Loading pipeline...")
-        safety_checker = StableDiffusionSafetyChecker.from_pretrained(
-            SAFETY_MODEL_ID,
-            cache_dir=MODEL_CACHE,
-            local_files_only=True,
-        )
+        """Load the base model and apply safetensors weights"""
+        print(f"Loading base pipeline: {self.base_model}")
+        
+        # Load base pipeline without safety checker for faster loading
         self.pipe = StableDiffusionPipeline.from_pretrained(
-            self.model_id,
-            # safety_checker=safety_checker,
+            self.base_model,
             safety_checker=None,
-            cache_dir=MODEL_CACHE,
-            local_files_only=True,
+            requires_safety_checker=False,
+            torch_dtype=torch.float16,
         ).to(self.device)
 
+        # Load and apply safetensors weights if available
+        if os.path.exists(self.safetensors_path):
+            print(f"Loading custom safetensors weights from {self.safetensors_path}")
+            try:
+                state_dict = load_file(self.safetensors_path)
+                
+                # Filter and load UNet weights
+                unet_state_dict = {}
+                for key, value in state_dict.items():
+                    if key.startswith('model.diffusion_model.'):
+                        # Handle Automatic1111/CivitAI format
+                        new_key = key.replace('model.diffusion_model.', '')
+                        unet_state_dict[new_key] = value
+                    elif not any(prefix in key for prefix in ['first_stage_model', 'cond_stage_model', 'model.diffusion_model']):
+                        # Direct diffusers format
+                        unet_state_dict[key] = value
+                
+                if unet_state_dict:
+                    self.pipe.unet.load_state_dict(unet_state_dict, strict=False)
+                    print("✅ Successfully loaded custom safetensors weights")
+                else:
+                    print("⚠️ No compatible UNet weights found in safetensors file")
+                    
+            except Exception as e:
+                print(f"❌ Error loading safetensors: {e}")
+                print("Continuing with base model...")
+        else:
+            print(f"⚠️ Safetensors file not found at {self.safetensors_path}")
+            print("Using base model only...")
+
+        # Enable memory optimizations
         self.pipe.enable_xformers_memory_efficient_attention()
-        # self.pipe.vae.enable_xformers_memory_efficient_attention(attention_op=None)
+        
+        # Set default scheduler
+        self.pipe.scheduler = DPMSolverMultistepScheduler.from_config(self.pipe.scheduler.config)
+        
         end_time = time.time()
-        print(f"setup time: {end_time - start_time}")
+        print(f"✅ Setup completed in {end_time - start_time:.2f} seconds")
 
     @torch.inference_mode()
     def predict(self, prompt, negative_prompt, width, height, num_outputs, num_inference_steps, guidance_scale, scheduler, seed):
