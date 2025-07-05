@@ -1,0 +1,18 @@
+# Build and push custom Docker image for RunPod deployment
+# Run these commands in order:
+
+# 1. Build the Docker image
+docker build -t your-dockerhub-username/illustrious-realism:latest .
+
+# 2. Login to Docker Hub
+docker login
+
+# 3. Push to Docker Hub
+docker push your-dockerhub-username/illustrious-realism:latest
+
+# 4. Use this image in RunPod template:
+# Container Image: your-dockerhub-username/illustrious-realism:latest
+
+# 5. Environment Variables in RunPod:
+# MODEL_URL=https://huggingface.co/datasets/YOUR_USERNAME/YOUR_DATASET/resolve/main/illustriousRealism_v10VAE.safetensors
+# BASE_MODEL=runwayml/stable-diffusion-v1-5

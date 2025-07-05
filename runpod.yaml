@@ -1,0 +1,48 @@
+# RunPod Serverless Configuration
+# This file helps RunPod understand your deployment
+
+name: "Illustrious Realism v1.0"
+description: "CivitAI Stable Diffusion model deployment"
+
+# Build configuration
+build:
+  python_version: "3.10"
+  system_packages:
+    - "git"
+    - "wget"
+
+# Environment variables that should be set in RunPod UI:
+# MODEL_URL=https://huggingface.co/datasets/YOUR_USERNAME/YOUR_DATASET/resolve/main/illustriousRealism_v10VAE.safetensors
+# BASE_MODEL=runwayml/stable-diffusion-v1-5
+
+# Resource requirements
+resources:
+  disk: 25 # GB
+  gpu: "RTX 4090" # or A100
+
+# Expected input/output schema
+input_schema:
+  prompt:
+    type: "string"
+    required: true
+  negative_prompt:
+    type: "string"
+    required: false
+  width:
+    type: "integer"
+    default: 512
+  height:
+    type: "integer"
+    default: 512
+  num_inference_steps:
+    type: "integer"
+    default: 30
+  guidance_scale:
+    type: "float"
+    default: 7.5
+  scheduler:
+    type: "string"
+    default: "DPMSolverMultistep"
+  seed:
+    type: "integer"
+    required: false
